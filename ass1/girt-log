@@ -1,0 +1,33 @@
+#!/bin/dash
+
+# Check arguments
+if test $# -ne 0
+then
+    echo "usage: girt-log" 1>&2
+    exit 1
+fi
+
+# Check whether .girt directory exists
+exist_dir="false"
+for dir in .*/
+do
+    if test "$dir" = ".girt/"
+    then
+        exist_dir="true"
+    fi
+done
+if test $exist_dir = "false"
+then
+    echo "girt-log: error: girt repository directory .girt not found" 1>&2
+    exit 1
+fi
+
+# Check if at least a branch exists
+if test $(wc -l < .girt/head) -eq 0
+then
+    exit 0
+fi
+
+# Print commit log of current branch in reverse order
+head=$(cat .girt/head)
+cat .girt/repo/$head/log.txt | sort -r

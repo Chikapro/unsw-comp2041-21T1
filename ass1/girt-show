@@ -1,0 +1,96 @@
+#!/bin/dash
+
+# Check arguments
+if test $# -ne 1
+then
+    echo "usage: girt-show <commit>:<filename>" 1>&2
+    exit 1
+fi
+
+# Check whether .girt directory exists
+exist_dir="false"
+for dir in .*/
+do
+    if test "$dir" = ".girt/"
+    then
+        exist_dir="true"
+    fi
+done
+if test $exist_dir = "false"
+then
+    echo "girt-show: error: girt repository directory .girt not found" 1>&2
+    exit 1
+fi
+
+# Find if colon exists
+if test $(echo $1 | grep -E "^[^:]*$" )
+then
+    echo "girt-show: error: invalid object $1" 1>&2
+    exit 1
+fi
+
+
+head=$(cat .girt/head)
+commit_num=$(echo $1 | cut -d':' -f1)
+# Commit number is not omitted
+if test $commit_num
+then
+    last_num=$(ls .girt/commit/ | wc -l )
+    last_num=$((last_num - 1))
+    # Check if commit number is valid
+    if test $commit_num -lt 0 || test $commit_num -gt $last_num ||
+    test $commit_num != $((commit_num))
+    then
+        echo "girt-show: error: unknown commit '$commit_num'" 1>&2
+        exit 1
+    fi
+fi
+
+file_name=$(echo $1 | cut -d':' -f2)
+# Check if filename is valid
+if test $(echo $file_name | grep -E "^[a-zA-Z0-9][a-zA-Z0-9.-_]*$" )
+then
+    :
+else
+    echo "girt-show: error: invalid filename '$file_name'" 1>&2
+    exit 1
+fi
+
+if test $commit_num
+then
+    # Commit number is not omitted
+    # Find if file exists
+    exist="false"
+    for file in $(ls .girt/commit/$commit_num)
+    do
+        if test "$file" = "$file_name"
+        then
+            exist="true"
+        fi
+    done
+    if test $exist = "false"
+    then
+        echo "girt-show: error: '$file_name' not found in commit $commit_num" 1>&2
+        exit 1
+    fi
+    cat ".girt/commit/$commit_num/$file_name"
+else
+    # Commit number is omitted
+    # Find if file exists
+    exist="false"
+    for file in $(ls .girt/index)
+    do
+        if test "$file" = "$file_name"
+        then
+            exist="true"
+        fi
+    done
+    if test $exist = "false"
+    then
+        echo "girt-show: error: '$file_name' not found in index" 1>&2
+        exit 1
+    fi
+    cat ".girt/index/$file_name"
+fi
+
+

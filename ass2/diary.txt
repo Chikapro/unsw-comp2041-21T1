@@ -1,0 +1,8 @@
+Date	       Start	       Stop         	Activity	              Comments
+23/04/21       10:20           11:00             reading               read details about assignment
+23/04/21       15:20           19:00             coding                implementing part of subset0
+24/04/21       09:30           14:00             coding                implementing all subset0
+24/04/21       15:00           19:00             coding                implementing part of subset1
+24/04/21       20:00           22:00             coding             continue implementing part of subset1
+25/04/21       11:00           13:00             coding                continue to do subset1
+25/04/21       17:00           23:30             coding         implementing subset1, test scripts and add comments

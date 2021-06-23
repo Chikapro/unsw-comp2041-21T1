@@ -1,0 +1,73 @@
+#!/bin/dash
+
+# Check whether .girt directory exists
+exist_dir="false"
+for dir in .*/
+do
+    if test "$dir" = ".girt/"
+    then
+        exist_dir="true"
+    fi
+done
+if test $exist_dir = "false"
+then
+    echo "girt-add: error: girt repository directory .girt not found" 1>&2
+    exit 1
+fi
+# Check whether each file exists in index and working folder
+for file in "$@"
+do
+    # Check file name
+    if test $(echo $file | grep -E "^[a-zA-Z0-9][a-zA-Z0-9.-_]*$" )
+    then
+        :
+    else
+        echo "girt-add: error: invalid filename '$file'" 1>&2
+        exit 1
+    fi
+    # Check working directory
+    exist_cur="false"
+    for cur_file in $(ls)
+    do
+        if test "$cur_file" = "$file"
+        then
+            exist_cur="true"
+        fi
+    done
+    # Check index
+    exist_index="false"
+    for index_file in $(ls .girt/index)
+    do
+        if test "$index_file" = "$file"
+        then
+            exist_index="true"
+        fi
+    done
+    # The file is not found in both directory
+    if test $exist_cur = "false" && test $exist_index = "false"
+    then
+        echo "girt-add: error: can not open '$file'" 1>&2
+        exit 1
+    fi
+done
+
+# Add file either new/modified/deleted
+for file in "$@"
+do
+    # Check working directory
+    exist_cur="false"
+    for cur_file in $(ls)
+    do
+        if test "$cur_file" = "$file"
+        then
+            exist_cur="true"
+        fi
+    done
+    # If file exists in working directory then copy, else delete
+    if test $exist_cur = "true"
+    then
+        cp "$file" ".girt/index/$file"
+    else
+        rm ".girt/index/$file"
+    fi
+done

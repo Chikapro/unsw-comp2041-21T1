@@ -1,0 +1,85 @@
+#!/bin/dash
+
+# Check whether .girt directory exists
+exist_dir="false"
+for dir in .*/
+do
+    if test "$dir" = ".girt/"
+    then
+        exist_dir="true"
+    fi
+done
+if test $exist_dir = "false"
+then
+    echo "girt-branch: error: girt repository directory .girt not found" 1>&2
+    exit 1
+fi
+
+# Check if commits have been made
+if test $(wc -l < .girt/head) -eq 0
+then
+    echo "girt-branch: error: this command can not be run until after the first commit" 1>&2
+    exit 1
+fi
+# Check arguments
+if test $# -eq 0
+then
+    # list branches
+    for branch in $(ls .girt/repo)
+    do
+        echo "$branch"
+    done
+elif test $# -eq 1
+then
+    # create branch
+    name=$1
+    # find if name exists
+    for branch in $(ls .girt/repo)
+    do
+        if test $branch = $name
+        then
+            echo "girt-branch: error: branch '$name' already exists" 1>&2
+            exit 1
+        fi
+    done
+    head=$(cat .girt/head)
+    mkdir .girt/repo/$name
+    cp -r .girt/repo/$head/*  .girt/repo/$name
+elif test $# -eq 2 && test $1 = "-d"
+then
+    # delete branch
+    exist="false"
+    name=$2
+    if test $name = "master"
+    then
+        echo "girt-branch: error: can not delete branch 'master'" 1>&2
+        exit 1
+    fi
+    # check if branch exists
+    for branch in $(ls .girt/repo)
+    do
+        if test $branch = $name
+        then
+            exist="true"
+        fi
+    done
+    if test $exist = "false"
+    then
+        echo "girt-branch: error: branch '$name' doesn't exist" 1>&2
+        exit 1
+    fi
+    head=$(cat .girt/head)
+    # check unmerged changes
+    delete_num=$(cat .girt/repo/$name/number)
+    curr_num=$(cat .girt/repo/$head/number)
+    if test $delete_num -gt $curr_num
+    then
+        echo "girt-branch: error: branch '$name' has unmerged changes" 1>&2
+        exit 1
+    fi
+    rm -rf .girt/repo/$name
+    echo "Deleted branch '$name'"
+else
+    echo "usage: girt-branch [-d] <branch>" 1>&2
+    exit 1
+fi

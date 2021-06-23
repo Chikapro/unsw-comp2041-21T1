@@ -1,0 +1,27 @@
+#!/bin/dash
+
+# Check arguments
+if test $# -ne 0
+then
+    echo "usage: girt-init" 1>&2
+    exit 1
+fi
+# Check if there is already a .girt directory
+for dir in .*/
+do
+    if test "$dir" = ".girt/"
+    then
+        echo "girt-init: error: .girt already exists" 1>&2
+        exit 1
+    fi
+done
+# Creat directory
+mkdir ".girt"
+cd ".girt"
+# Branched are stored in repo, head is used to track branch
+# index and commit folders are used to store files
+touch head
+mkdir "index"
+mkdir "commit"
+mkdir "repo"
+echo "Initialized empty girt repository in .girt"

@@ -1,0 +1,182 @@
+#!/bin/dash
+
+# Check whether .girt directory exists
+exist_dir="false"
+for dir in .*/
+do
+    if test "$dir" = ".girt/"
+    then
+        exist_dir="true"
+    fi
+done
+if test $exist_dir = "fale"
+then
+    echo "girt-checkout: error: girt repository directory .girt not found" 1>&2
+    exit 1
+fi
+
+# Check if commits have been made
+if test $(wc -l < .girt/head) -eq 0
+then
+    echo "girt-checkout: error: this command can not be run until after the first commit" 1>&2
+    exit 1
+fi
+# check arguments
+if test $# -ne 1
+then
+    echo "usage: girt-checkout <branch>"
+    exit 1
+fi
+name=$1
+head=$(cat .girt/head)
+old_num=$(cat .girt/repo/$head/number)
+# Check if branch exists
+exist="false"
+for branch in $(ls .girt/repo)
+do
+    if test $branch = $name
+    then
+        exist="true"
+    fi
+done
+if test $exist = "false"
+then
+    echo "girt-checkout: error: unknown branch '$name'" 1>&2
+    exit 1
+fi
+# Already on
+if test $name = $head
+then
+    echo "Already on '$name'"
+    exit 0
+fi
+
+new_num=$(cat .girt/repo/$name/number)
+
+# compare new branch commit files with index and working directories and warn
+# for repo_file in $(ls .girt/commit/$new_num)
+# do
+#     index_exist="false"
+#     cur_exist="false"
+#     index_repo_same="false"
+#     cur_repo_same="false"
+#     # check files in index
+#     for index_file in $(ls .girt/index)
+#     do
+#         if test $index_file = $repo_file
+#         then
+#             index_exist="true"
+#             if diff .girt/index/$index_file .girt/commit/$new_num/$repo_file > /dev/null
+#             then
+#                 index_repo_same="true"
+#             fi
+#         fi
+#     done
+#     # check files in working directory
+#     for cur_file in $(ls)
+#     do
+#         if test $cur_file = $repo_file
+#         then
+#             cur_exist="true"
+#             if diff $cur_file .girt/commit/$new_num/$repo_file > /dev/null
+#             then
+#                 cur_repo_same="true"
+#             fi
+#         fi
+#     done
+#     # Warn user if overwritten
+#     if test $cur_exist = "true" && test $cur_repo_same = "false"
+#     then
+#         if test $new_num -gt $old_num
+#         then
+#             echo "girt-checkout: error: Your changes to the following files would be overwritten by checkout:
+# $repo_file" 1>&2
+#             exit 1
+#         fi
+#     fi
+
+#     if test $index_exist = "true" && test $index_repo_same = "false"
+#     then
+#         if test $new_num -gt $old_num
+#         then
+#             echo "girt-checkout: error: Your changes to the following files would be overwritten by checkout:
+# $repo_file" 1>&2
+#             exit 1
+#         fi
+#     fi
+
+# done
+
+# delete index/woking files that are same with the old branch commit
+for repo_file in $(ls .girt/commit/$old_num)
+do
+    index_exist="false"
+    cur_exist="false"
+    index_repo_same="false"
+    index_cur_same="false"
+    # check files in index
+    for index_file in $(ls .girt/index)
+    do
+        if test $index_file = $repo_file
+        then
+            index_exist="true"
+            if diff .girt/index/$index_file .girt/commit/$old_num/$repo_file > /dev/null
+            then
+                index_repo_same="true"
+            fi
+        fi
+    done
+    # check files in working directory
+    for cur_file in $(ls)
+    do
+        if test $cur_file = $repo_file
+        then
+            cur_exist="true"
+        fi
+    done
+    # check if index and working directory files same
+    if test $cur_exist = "true" && test $index_exist = "true" &&
+    diff .girt/index/$repo_file $repo_file > /dev/null
+    then
+        index_cur_same="true"
+    fi
+    # remove same files
+    if test $index_exist = "true" && test $cur_exist = "true" &&
+    test $index_repo_same = "true" && test $index_cur_same = "true"
+    then
+        girt-rm "$repo_file"
+    fi
+done
+# change reference of head
+echo $name > .girt/head
+head=$name
+# copy all files in new branch commit that are not in working directory and
+# index to working directory and index
+for repo_file in $(ls .girt/commit/$new_num)
+do
+    index_exist="false"
+    cur_exist="false"
+    # check index
+    for index_file in $(ls .girt/index)
+    do
+        if test $index_file = $repo_file
+        then
+            index_exist="true"
+        fi
+    done
+    # check working directory
+    for cur_file in $(ls)
+    do
+        if test $cur_file = $repo_file
+        then
+            cur_exist="true"
+        fi
+    done
+    # both don't exist
+    if test $index_exist = "false" && test $cur_exist = "false"
+    then
+        cp .girt/commit/$new_num/$repo_file .girt/index/$repo_file
+        cp .girt/commit/$new_num/$repo_file .
+    fi
+done
+echo "Switched to branch '$name'"

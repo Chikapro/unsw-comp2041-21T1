@@ -1,0 +1,154 @@
+#!/bin/dash
+
+# Check whether .girt directory exists
+exist_dir="false"
+for dir in .*/
+do
+    if test "$dir" = ".girt/"
+    then
+        exist_dir="true"
+    fi
+done
+if test $exist_dir = "false"
+then
+    echo "girt-rm: error: girt repository directory .girt not found" 1>&2
+    exit 1
+fi
+
+
+# Check if force and cached arguments are used
+force="false"
+cached="false"
+if test $1 = "--force"
+then
+    if test $2 = "--cached"
+    then
+        force="true"
+        cached="true"
+    else
+        force="true"
+    fi
+elif test $1 = "--cached"
+then
+    cached="true"
+fi
+
+# Check if files if arguments exist in index
+for file in "$@"
+do
+    if test "$file" = "--force" || test "$file" = "--cached"
+    then
+        continue
+    fi
+    index_exist="false"
+    for index_file in $(ls .girt/index)
+    do
+        if test $index_file = $file
+        then
+            index_exist="true"
+        fi
+    done
+    if test $index_exist = "false"
+    then
+        echo "girt-rm: error: '$file' is not in the girt repository" 1>&2
+        exit 1
+    fi
+done
+
+if test $(wc -l < .girt/head) -ne 0
+then
+    head=$(cat .girt/head)
+    curr_num=$(cat .girt/repo/$head/number)
+fi
+
+if test $force = "false"
+then
+    # Stop the user accidentally losing work and give an error message
+    for file in "$@"
+    do
+        if test "$file" = "--force" || test "$file" = "--cached"
+        then
+            continue
+        fi
+        same_workfile="false"
+        same_repofile="false"
+        cur_exist="false"
+        # find if file in index is same with the file in working directory
+        for cur_file in $(ls)
+        do
+            if test $cur_file = $file
+            then
+                cur_exist="true"
+                if diff .girt/index/$file $cur_file > /dev/null
+                then
+                    same_workfile="true"
+                fi
+            fi
+        done
+        if test $(wc -l < .girt/head) -ne 0
+        then
+            # find if file in index is same with the file in repo
+            for repo_file in $(ls .girt/commit/$curr_num)
+            do
+                if test $repo_file = $file &&
+                diff .girt/commit/$curr_num/$file .girt/index/$file > /dev/null
+                then
+                    same_repofile="true"
+                fi
+            done
+        fi
+        # file in index is different to the file in repo
+        if test $same_repofile = "false"
+        then
+            #  file in index is different to the file in working directory
+            if test $same_workfile = "false" && test $cur_exist = "true"
+            then
+                echo "girt-rm: error: '$file' in index is different to both to the working file and the repository" 1>&2
+                exit 1
+            # file in index is same with the file in working directory
+            elif test $same_workfile = "true" && test $cached = "false"
+            then
+                echo "girt-rm: error: '$file' has staged changes in the index" 1>&2
+                exit 1
+            fi
+        # file in index is same with the file in repo
+        else
+            #  file in index is different to the file in working directory
+            if test $same_workfile = "false" && test $cur_exist = "true" &&
+            test $cached = "false"
+            then
+                echo "girt-rm: error: '$file' in the repository is different to the working file" 1>&2
+                exit 1
+            fi
+        fi
+    done
+fi
+
+# Remove file
+for file in "$@"
+do
+    if test "$file" = "--force" || test "$file" = "--cached"
+    then
+        continue
+    fi
+    # if file exists in working directory
+    cur_exist="false"
+    for cur_file in $(ls)
+    do
+        if test $cur_file = $file
+        then
+            cur_exist="true"
+        fi
+    done
+    # remove file in index and working directory
+    if test $cached = "true"
+    then
+        rm .girt/index/$file
+    else
+        rm .girt/index/$file
+        if test $cur_exist = "true"
+        then
+            rm $file
+        fi
+    fi
+done

@@ -1,0 +1,71 @@
+#!/bin/dash
+
+# Check arguments
+if test $# -ne 3
+then
+    echo "usage: girt-merge <branch|commit> -m message" 1>&2
+    exit 1
+fi
+
+# Check whether .girt directory exists
+exist_dir="false"
+for dir in .*/
+do
+    if test "$dir" = ".girt/"
+    then
+        exist_dir="true"
+    fi
+done
+if test $exist_dir = "false"
+then
+    echo "girt-merge: error: girt repository directory .girt not found" 1>&2
+    exit 1
+fi
+
+message=$3
+# Check commit number or name
+if test $1 = $(($1))
+then
+    # commit number
+    commit_num=$1
+    last_num=$(ls .girt/commit/ | wc -l )
+    last_num=$((last_num - 1))
+    if test $commit_num -lt 0 || test $commit_num -gt $last_num
+    then
+        echo "girt-merge: error: unknown commit '$commit_num'" 1>&2
+        exit 1
+    fi
+else
+    # name
+    exist="false"
+    # find if name exists
+    for branch in $(ls .girt/repo/)
+    do
+        if test $branch = $1
+        then
+            exist="true"
+            commit_num=$(cat .girt/repo/$1/number)
+        fi
+    done
+    if test exist = "false"
+    then
+        echo "girt-merge: error: unknown branch '$1'" 1>&2
+        exit 1
+    fi
+fi
+
+# Check if at least a branch exists
+if test $(wc -l < .girt/head) -eq 0
+then
+    exit 0
+fi
+
+head=$(cat .girt/head)
+old_num=$(cat .girt/repo/$head/number)
+# copy file from old commits
+for file in $(ls .girt/commit/$commit_num)
+do
+    cp ".girt/commit/$commit_num/$file" ".girt/index/$file"
+    cp ".girt/commit/$commit_num/$file" ".girt/commit/$old_num/$file"
+done
+echo "Fast-forward: no commit created"

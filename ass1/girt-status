@@ -1,0 +1,145 @@
+#!/bin/dash
+
+# Check whether .girt directory exists
+exist_dir="false"
+for dir in .*/
+do
+    if test "$dir" = ".girt/"
+    then
+        exist_dir="true"
+    fi
+done
+if test $exist_dir = "false"
+then
+    echo "girt-status: error: girt repository directory .girt not found" 1>&2
+    exit 1
+fi
+
+# Current branch
+if test $(wc -l < .girt/head) -ne 0
+then
+    head=$(cat .girt/head)
+    curr_num=$(cat .girt/repo/$head/number)
+
+    # Check all the files in repo
+    for repo_file in $(ls .girt/commit/$curr_num)
+    do
+        index_exist="false"
+        cur_exist="false"
+        index_repo_same="false"
+        index_cur_same="false"
+        # Check if file exists and same in index
+        for index_file in $(ls .girt/index)
+        do
+            if test $index_file = $repo_file
+            then
+                index_exist="true"
+                if diff .girt/index/$index_file .girt/commit/$curr_num/$repo_file > /dev/null
+                then
+                    index_repo_same="true"
+                fi
+            fi
+        done
+        # Check if file exists and same in working directory
+        for cur_file in $(ls)
+        do
+            if test $cur_file = $repo_file
+            then
+                cur_exist="true"
+            fi
+        done
+        # Check if file exists and same in index and working directory
+        if test $cur_exist = "true" && test $index_exist = "true" &&
+        diff .girt/index/$repo_file $repo_file > /dev/null
+        then
+            index_cur_same="true"
+        fi
+
+        if test $index_exist = "true" && test $cur_exist = "true" &&
+        test $index_repo_same = "false" && test $index_cur_same = "false"
+        then
+            echo "$repo_file - file changed, different changes staged for commit"
+        elif test $index_exist = "true" && test $cur_exist = "true" &&
+        test $index_repo_same = "false" && test $index_cur_same = "true"
+        then
+            echo "$repo_file - file changed, changes staged for commit"
+        elif test $index_exist = "true" && test $cur_exist = "true" &&
+        test $index_repo_same = "true" && test $index_cur_same = "false"
+        then
+            echo "$repo_file - file changed, changes not staged for commit"
+        elif test $index_exist = "true" && test $cur_exist = "true" &&
+        test $index_repo_same = "true" && test $index_cur_same = "true"
+        then
+            echo "$repo_file - same as repo"
+        elif test $index_exist = "false" && test $cur_exist = "false"
+        then
+            echo "$repo_file - deleted"
+        elif test $index_exist = "true" && test $cur_exist = "false"
+        then
+            echo "$repo_file - file deleted"
+        fi
+    done
+fi
+
+# Check all the files in index which are not in repo
+for index_file in $(ls .girt/index)
+do
+    repo_exist="false"
+    cur_exist="false"
+    index_cur_same="false"
+    if test $(wc -l < .girt/head) -ne 0
+    then
+        # Check if file exists in repo
+        for repo_file in $(ls .girt/commit/$curr_num)
+        do
+            if test $index_file = $repo_file
+            then
+                repo_exist="true"
+            fi
+        done
+    fi
+    # Check if file exists and same in working directory
+    for cur_file in $(ls)
+    do
+        if test $cur_file = $index_file
+        then
+            cur_exist="true"
+            if diff $cur_file .girt/index/$index_file > /dev/null
+            then
+                index_cur_same="true"
+            fi
+        fi
+    done
+    if test $repo_exist = "false" && test $cur_exist = "true" &&
+    test $index_cur_same = "false"
+    then
+        echo "$index_file - added to index, file changed"
+    elif test $repo_exist = "false" && test $cur_exist = "true" &&
+    test $index_cur_same = "true"
+    then
+        echo "$index_file - added to index"
+    elif test $repo_exist = "false" && test $cur_exist = "false"
+    then
+        echo "$index_file - added to index, file deleted"
+    fi
+done
+
+
+# Check all the files in working directory which are not in index
+for cur_file in $(ls)
+do
+    # Check if file exists in index
+    index_exist="false"
+    for index_file in $(ls .girt/index)
+    do
+        if test $cur_file = $index_file
+        then
+            index_exist="true"
+        fi
+    done
+    if test $index_exist = "false"
+    then
+        echo "$cur_file - untracked"
+    fi
+done
+

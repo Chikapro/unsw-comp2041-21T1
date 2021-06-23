@@ -1,0 +1,131 @@
+#!/bin/dash
+
+# Check whether .girt directory exists
+exist_dir="false"
+for dir in .*/
+do
+    if test "$dir" = ".girt/"
+    then
+        exist_dir="true"
+    fi
+done
+if test $exist_dir = "false"
+then
+    echo "girt-commit: error: girt repository directory .girt not found" 1>&2
+    exit 1
+fi
+
+
+# Check arguments
+if test "$1" = "-a"
+then
+    if test $# -ne 3 || test "$2" != "-m"
+    then
+        echo "usage: girt-commit [-a] -m commit-message" 1>&2
+        exit 1
+    fi
+    # add all the file in working directory that exists in index to index
+    for file in $(ls .girt/index)
+    do
+        girt-add "$file"
+    done
+    message="$3"
+elif test "$1" = "-m"
+then
+    if test $# -ne 2
+    then
+        echo "usage: girt-commit [-a] -m commit-message" 1>&2
+        exit 1
+    fi
+    message="$2"
+else
+    echo "usage: girt-commit [-a] -m commit-message" 1>&2
+    exit 1
+fi
+
+if test $(wc -l < .girt/head) -eq 0
+then
+    # new branch, head doesn't reference to any branch
+    head="master"
+    echo "$head" > ".girt/head"
+    mkdir ".girt/repo/$head"
+    mkdir ".girt/commit/0"
+    # Copy files in index to commit
+    for index_file in $(ls .girt/index)
+    do
+        cp ".girt/index/$index_file" ".girt/commit/0/$index_file"
+    done
+    # commit logs
+    echo "0 $message" >> ".girt/repo/$head/log.txt"
+    # current commit number that the branch references to
+    echo "0" > ".girt/repo/$head/number"
+    echo "Committed as commit 0"
+    exit 0
+else
+    # head already references to a branch
+    head=$(cat .girt/head)
+    # last number in the commit folder
+    last_num=$(ls .girt/commit/ | wc -l )
+    last_num=$((last_num - 1))
+    # current commit number that the branch references to
+    curr_num=$(cat .girt/repo/$head/number)
+    # Check if all the files in index are same with files in repo
+    for index_file in $(ls .girt/index)
+    do
+        exist="false"
+        for repo_file in $(ls .girt/commit/$curr_num)
+        do
+            if test "$index_file" = "$repo_file" &&
+            diff .girt/index/$index_file .girt/commit/$curr_num/$repo_file > /dev/null
+            then
+                exist="true"
+            fi
+        done
+        # if difference is found, then creat a new commit
+        if test $exist = "false"
+        then
+            last_num=$((last_num + 1))
+            mkdir ".girt/commit/$last_num"
+            # Copy files in index to commit
+            for file in $(ls .girt/index)
+            do
+                cp ".girt/index/$file" ".girt/commit/$last_num/$file"
+            done
+            echo "$last_num $message" >> ".girt/repo/$head/log.txt"
+            echo "$last_num" > ".girt/repo/$head/number"
+            echo "Committed as commit $last_num"
+            exit 0
+        fi
+    done
+    # Check if all the files in repo are same with files in index
+    for repo_file in $(ls .girt/commit/$curr_num)
+    do
+        exist="false"
+        for index_file in $(ls .girt/index)
+        do
+            if test "$index_file" = "$repo_file" &&
+            diff .girt/index/$index_file .girt/commit/$curr_num/$repo_file > /dev/null
+            then
+                exist="true"
+            fi
+        done
+        # if difference is found, then creat a new commit
+        if test $exist = "false"
+        then
+            last_num=$((last_num + 1))
+            mkdir ".girt/commit/$last_num"
+            # Copy files in index to commit
+            for file in $(ls .girt/index)
+            do
+                cp ".girt/index/$file" ".girt/commit/$last_num/$file"
+            done
+            echo "$last_num $message" >> ".girt/repo/$head/log.txt"
+            echo "$last_num" > ".girt/repo/$head/number"
+            echo "Committed as commit $last_num"
+            exit 0
+        fi
+    done
+    # all the files are same
+    echo "nothing to commit"
+    exit 0
+fi
